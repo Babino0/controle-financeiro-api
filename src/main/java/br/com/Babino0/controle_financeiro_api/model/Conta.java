@@ -1,24 +1,25 @@
-package br.com.Babino0.controle_financeiro_api;
+package br.com.Babino0.controle_financeiro_api.model;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 
+import java.math.BigDecimal;
 @Entity
-public class Categoria {
+public class Conta {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     private Long id;
-    private String nome;
+    private  String nome;
+    private BigDecimal saldo;
 
-
-
-    public Categoria() {
+    public Conta() {
     }
 
-    public Categoria(String nome) {
+    public Conta(String nome, BigDecimal saldo) {
         this.nome = nome;
+        this.saldo = saldo;
     }
 
     public Long getId() {
@@ -27,5 +28,9 @@ public class Categoria {
 
     public String getNome() {
         return nome;
+    }
+
+    public BigDecimal getSaldo() {
+        return saldo;
     }
 }
