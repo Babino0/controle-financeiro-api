@@ -11,18 +11,23 @@ import java.util.Objects;
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
-    @ExceptionHandler(RecursoNaoEncontradoException.class)
-    public ResponseEntity<Map<String, String>> naoEncontrado(RecursoNaoEncontradoException e) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("erro", Objects.requireNonNullElse(e.getMessage(), "Requisicao invalida")));
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<Map<String, String>> notFound(ResourceNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error(e));
     }
 
-    @ExceptionHandler(SaldoInsuficienteException.class)
-    public ResponseEntity<Map<String, String>> saldoInsuficiente(SaldoInsuficienteException e) {
-        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(Map.of("erro", Objects.requireNonNullElse(e.getMessage(), "Requisicao invalida")));
+    @ExceptionHandler(InsufficientBalanceException.class)
+    public ResponseEntity<Map<String, String>> insufficientBalance(InsufficientBalanceException e) {
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(error(e));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<Map<String, String>> requisicaoInvalida(IllegalArgumentException e) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("erro", Objects.requireNonNullElse(e.getMessage(), "Requisicao invalida")));
+    public ResponseEntity<Map<String, String>> invalidRequest(IllegalArgumentException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(e));
+    }
+
+    // Map.of does not accept null, so a missing message falls back to a default text.
+    private Map<String, String> error(RuntimeException e) {
+        return Map.of("error", Objects.requireNonNullElse(e.getMessage(), "Invalid request"));
     }
 }

@@ -1,50 +1,50 @@
 # Controle Financeiro API
 
-API REST para controle financeiro pessoal: contas, categorias e transações.
-Projeto de estudo em Java com Spring Boot.
+REST API for personal finance management: accounts, categories and transactions.
+Study project in Java with Spring Boot.
 
-A versão em Java puro, com as regras de negócio, está em
+The plain Java version, with the business rules, is in
 [controle-financeiro-java](https://github.com/Babino0/controle-financeiro-java).
 
-## Tecnologias
+## Technologies
 
 - Java 21
 - Spring Boot (Spring Web)
 - Spring Data JPA com Hibernate
-- H2 (banco em memória)
+- H2 (in-memory database)
 - Maven
 
-## Como rodar
+## How to run
 
-Requisito: JDK 21.
+Requirement: JDK 21.
 
 ```
 .\mvnw.cmd spring-boot:run
 ```
 
-No Linux e no macOS, use `./mvnw spring-boot:run`. A API sobe em `http://localhost:8080`.
+On Linux and macOS, use `./mvnw spring-boot:run`. The API starts at `http://localhost:8080`.
 
-## Persistência
+## Persistence
 
-As entidades são mapeadas com JPA. As tabelas são criadas automaticamente no H2
-ao iniciar, e os dados são apagados quando a aplicação para. O PostgreSQL
-será adotado nas próximas etapas.
+Entities are mapped with JPA. Tables are created automatically in H2 on startup,
+and the data is erased when the application stops. PostgreSQL will be adopted in
+the next stages.
 
-## Endpoints: categorias
+## Endpoints: categories
 
-| Método | Caminho | Descrição | Resposta |
+| Method | Path | Description | Response |
 | --- | --- | --- | --- |
-| POST | `/categorias` | Cria uma categoria | 201 |
-| GET | `/categorias` | Lista as categorias | 200 |
-| GET | `/categorias/{id}` | Busca por id | 200 ou 404 |
-| DELETE | `/categorias/{id}` | Remove por id | 204 |
+| POST | `/categories` | Creates a category | 201 |
+| GET | `/categories` | Lists the categories | 200 |
+| GET | `/categories/{id}` | Finds by id | 200 or 404 |
+| DELETE | `/categories/{id}` | Deletes by id | 204 |
 
-## Status do projeto
+## Project status
 
-- [x] CRUD de Categoria
-- [ ] Conta e Transação
-- [ ] Regras de negócio (saldo, transferência)
+- [x] Category CRUD
+- [ ] Account and Transaction
+- [ ] Business rules (balance, transfers)
 - [ ] PostgreSQL
-- [ ] Autenticação com JWT
-- [ ] Testes automatizados
-- [ ] Docker e deploy
+- [ ] JWT authentication
+- [ ] Automated tests
+- [ ] Docker and deploy
