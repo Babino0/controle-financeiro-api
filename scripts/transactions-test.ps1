@@ -19,44 +19,47 @@ function Check($name, $actual, $expected) {
     else { Write-Host "FAILED: $name (expected $expected, got $actual)" -ForegroundColor Red }
 }
 
-function Send($accId, $catId, $type, $amount, $desc) {
-    $json = '{"accountId":' + $accId + ',"categoryId":' + $catId + ',"type":"' + $type + '","amount":' + $amount + ',"description":"' + $desc + '"}'
+function Send($accId, $catId, $type, $amount) {
+    $json = '{"accountId":' + $accId + ',"categoryId":' + $catId + ',"type":"' + $type + '","amount":' + $amount + ',"description":"test"}'
     return Call "POST" "/transactions" $json
 }
 
-function ParseList($body) {
-    $parsed = $body | ConvertFrom-Json
-    return @($parsed | ForEach-Object { $_ })
-}
-
-function ListPeriod($accId, $query) {
-    return Call "GET" "/transactions?accountId=$accId$query" $null
-}
 function ParseList($body) {
     if ([string]::IsNullOrWhiteSpace($body)) { return @() }
     $parsed = $body | ConvertFrom-Json
     return @($parsed | ForEach-Object { $_ })
 }
 
-$today = (Get-Date).ToString("yyyy-MM-dd")
-$yesterday = (Get-Date).AddDays(-1).ToString("yyyy-MM-dd")
-$tomorrow = (Get-Date).AddDays(1).ToString("yyyy-MM-dd")
+function Report($accId) {
+    return Call "GET" "/reports/by-category?accountId=$accId" $null
+}
 
-$categoryId = ((Call "POST" "/categories" '{"name":"Food"}').Body | ConvertFrom-Json).id
-$acc = ((Call "POST" "/accounts" '{"name":"Wallet","balance":500}').Body | ConvertFrom-Json).id
+$food = ((Call "POST" "/categories" '{"name":"Food"}').Body | ConvertFrom-Json).id
+$transport = ((Call "POST" "/categories" '{"name":"Transport"}').Body | ConvertFrom-Json).id
+$acc1 = ((Call "POST" "/accounts" '{"name":"Wallet","balance":500}').Body | ConvertFrom-Json).id
+$acc2 = ((Call "POST" "/accounts" '{"name":"Savings","balance":100}').Body | ConvertFrom-Json).id
+$acc3 = ((Call "POST" "/accounts" '{"name":"Empty","balance":0}').Body | ConvertFrom-Json).id
 
-Send $acc $categoryId "EXPENSE" 10 "first" | Out-Null
-Send $acc $categoryId "INCOME" 20 "second" | Out-Null
-Send $acc $categoryId "EXPENSE" 5 "third" | Out-Null
+Send $acc1 $food "EXPENSE" 10 | Out-Null
+Send $acc1 $food "EXPENSE" 5 | Out-Null
+Send $acc1 $transport "EXPENSE" 30 | Out-Null
+Send $acc1 $food "INCOME" 100 | Out-Null
+Send $acc2 $transport "EXPENSE" 7 | Out-Null
 
-$r = ListPeriod $acc "&from=$today&to=$today"
-Check "today..today: status" $r.Status 200
-Check "today..today: count" (@(ParseList $r.Body)).Count 3
-Check "yesterday..yesterday: count" (@(ParseList (ListPeriod $acc "&from=$yesterday&to=$yesterday").Body)).Count 0
-Check "tomorrow..tomorrow: count" (@(ParseList (ListPeriod $acc "&from=$tomorrow&to=$tomorrow").Body)).Count 0
-Check "yesterday..tomorrow: count" (@(ParseList (ListPeriod $acc "&from=$yesterday&to=$tomorrow").Body)).Count 3
-Check "no dates: count (as before)" (@(ParseList (ListPeriod $acc "").Body)).Count 3
-Check "only from: status" (ListPeriod $acc "&from=$today").Status 400
-Check "from after to: status" (ListPeriod $acc "&from=$tomorrow&to=$yesterday").Status 400
-Check "invalid date: status" (ListPeriod $acc "&from=abc&to=$today").Status 400
-Check "unknown account with dates: status" (ListPeriod 999 "&from=$today&to=$today").Status 404
+$r = Report $acc1
+$items = @(ParseList $r.Body)
+Check "report: status" $r.Status 200
+Check "report: 2 categories" $items.Count 2
+Check "report: biggest first" $items[0].categoryName "Transport"
+Check "report: transport total" ([decimal]$items[0].total) 30
+Check "report: food total ignores income" ([decimal]$items[1].total) 15
+
+$r2 = @(ParseList (Report $acc2).Body)
+Check "isolation: account 2 has 1 category" $r2.Count 1
+Check "isolation: account 2 total" ([decimal]$r2[0].total) 7
+
+$r3 = Report $acc3
+Check "no expenses: status" $r3.Status 200
+Check "no expenses: body is []" $r3.Body.Trim() "[]"
+Check "unknown account: status" (Report 999).Status 404
+Check "missing accountId: status" (Call "GET" "/reports/by-category" $null).Status 400
