@@ -10,7 +10,7 @@ The plain Java version, with the business rules, is in
 
 - Java 21
 - Spring Boot (Spring Web)
-- Spring Data JPA com Hibernate
+- Spring Data JPA with Hibernate
 - H2 (in-memory database)
 - Maven
 
@@ -42,8 +42,9 @@ the next stages.
 ## Project status
 
 - [x] Category CRUD
-- [ ] Account and Transaction
-- [ ] Business rules (balance, transfers)
+- [x] Accounts and transactions with balance rules
+- [x] Transaction listing, period filter and expenses by category report
+- [ ] Account-to-account transfers
 - [ ] PostgreSQL
 - [ ] JWT authentication
 - [ ] Automated tests
