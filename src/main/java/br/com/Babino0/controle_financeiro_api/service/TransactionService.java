@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 public class TransactionService {
@@ -26,6 +27,14 @@ public class TransactionService {
         this.accountRepository = accountRepository;
         this.transactionRepository = transactionRepository;
         this.categoryRepository = categoryRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Transaction> listByAccount(Long accountId){
+        if (!accountRepository.existsById(accountId)) {
+            throw new ResourceNotFoundException("Account not found");
+        }
+        return transactionRepository.findByAccountIdOrderByDateTimeDesc(accountId);
     }
 
     @Transactional

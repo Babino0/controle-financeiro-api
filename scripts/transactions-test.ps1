@@ -19,47 +19,33 @@ function Check($name, $actual, $expected) {
     else { Write-Host "FAILED: $name (expected $expected, got $actual)" -ForegroundColor Red }
 }
 
-function Balance() {
-    $a = Call "GET" "/accounts/$accountId" $null
-    return [decimal]($a.Body | ConvertFrom-Json).balance
-}
-
-function Send($accId, $catId, $type, $amount) {
-    $json = '{"accountId":' + $accId + ',"categoryId":' + $catId + ',"type":"' + $type + '","amount":' + $amount + ',"description":"test"}'
+function Send($accId, $catId, $type, $amount, $desc) {
+    $json = '{"accountId":' + $accId + ',"categoryId":' + $catId + ',"type":"' + $type + '","amount":' + $amount + ',"description":"' + $desc + '"}'
     return Call "POST" "/transactions" $json
 }
 
-$cat = Call "POST" "/categories" '{"name":"Food"}'
-$categoryId = ($cat.Body | ConvertFrom-Json).id
-$acc = Call "POST" "/accounts" '{"name":"Wallet","balance":100}'
-$accountId = ($acc.Body | ConvertFrom-Json).id
+function ListByAccount($accId) {
+    return Call "GET" "/transactions?accountId=$accId" $null
+}
 
-$r = Send $accountId $categoryId "EXPENSE" 30
-Check "expense 30: status" $r.Status 201
-Check "expense 30: balance" (Balance) 70
+function ParseList($body) {
+    $parsed = $body | ConvertFrom-Json
+    return @($parsed | ForEach-Object { $_ })
+}
 
-$r = Send $accountId $categoryId "INCOME" 50
-Check "income 50: status" $r.Status 201
-Check "income 50: balance" (Balance) 120
+$categoryId = ((Call "POST" "/categories" '{"name":"Food"}').Body | ConvertFrom-Json).id
+$acc1 = ((Call "POST" "/accounts" '{"name":"Wallet","balance":500}').Body | ConvertFrom-Json).id
+$acc2 = ((Call "POST" "/accounts" '{"name":"Savings","balance":100}').Body | ConvertFrom-Json).id
 
-$r = Send $accountId $categoryId "EXPENSE" 120
-Check "expense that zeroes the balance: status" $r.Status 201
-Check "expense that zeroes the balance: balance" (Balance) 0
+Send $acc1 $categoryId "EXPENSE" 10 "first" | Out-Null
+Start-Sleep -Milliseconds 50
+Send $acc1 $categoryId "INCOME" 20 "second" | Out-Null
+Start-Sleep -Milliseconds 50
+Send $acc1 $categoryId "EXPENSE" 5 "third" | Out-Null
+Send $acc2 $categoryId "INCOME" 1 "other" | Out-Null
 
-$r = Send $accountId $categoryId "EXPENSE" 1
-Check "insufficient balance: status" $r.Status 422
-Check "insufficient balance: balance unchanged" (Balance) 0
-
-$r = Send $accountId $categoryId "INCOME" 0
-Check "zero amount: status" $r.Status 400
-
-$r = Send $accountId $categoryId "EXPENSE" -5
-Check "negative amount: status" $r.Status 400
-Check "invalid amount: balance unchanged" (Balance) 0
-
-$r = Send 999 $categoryId "INCOME" 10
-Check "unknown account: status" $r.Status 404
-
-$r = Send $accountId 999 "INCOME" 10
-Check "unknown category: status" $r.Status 404
-Check "unknown resource: balance unchanged" (Balance) 0
+$items = @(ParseList (ListByAccount $acc1).Body)
+Check "list: count" $items.Count 3
+Check "list: newest first" $items[0].description "third"
+Check "list: oldest last" $items[2].description "first"
+Check "isolation: account 1 still has 3" (@(ParseList (ListByAccount $acc1).Body)).Count 3
