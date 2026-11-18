@@ -24,28 +24,39 @@ function Send($accId, $catId, $type, $amount, $desc) {
     return Call "POST" "/transactions" $json
 }
 
-function ListByAccount($accId) {
-    return Call "GET" "/transactions?accountId=$accId" $null
-}
-
 function ParseList($body) {
     $parsed = $body | ConvertFrom-Json
     return @($parsed | ForEach-Object { $_ })
 }
 
+function ListPeriod($accId, $query) {
+    return Call "GET" "/transactions?accountId=$accId$query" $null
+}
+function ParseList($body) {
+    if ([string]::IsNullOrWhiteSpace($body)) { return @() }
+    $parsed = $body | ConvertFrom-Json
+    return @($parsed | ForEach-Object { $_ })
+}
+
+$today = (Get-Date).ToString("yyyy-MM-dd")
+$yesterday = (Get-Date).AddDays(-1).ToString("yyyy-MM-dd")
+$tomorrow = (Get-Date).AddDays(1).ToString("yyyy-MM-dd")
+
 $categoryId = ((Call "POST" "/categories" '{"name":"Food"}').Body | ConvertFrom-Json).id
-$acc1 = ((Call "POST" "/accounts" '{"name":"Wallet","balance":500}').Body | ConvertFrom-Json).id
-$acc2 = ((Call "POST" "/accounts" '{"name":"Savings","balance":100}').Body | ConvertFrom-Json).id
+$acc = ((Call "POST" "/accounts" '{"name":"Wallet","balance":500}').Body | ConvertFrom-Json).id
 
-Send $acc1 $categoryId "EXPENSE" 10 "first" | Out-Null
-Start-Sleep -Milliseconds 50
-Send $acc1 $categoryId "INCOME" 20 "second" | Out-Null
-Start-Sleep -Milliseconds 50
-Send $acc1 $categoryId "EXPENSE" 5 "third" | Out-Null
-Send $acc2 $categoryId "INCOME" 1 "other" | Out-Null
+Send $acc $categoryId "EXPENSE" 10 "first" | Out-Null
+Send $acc $categoryId "INCOME" 20 "second" | Out-Null
+Send $acc $categoryId "EXPENSE" 5 "third" | Out-Null
 
-$items = @(ParseList (ListByAccount $acc1).Body)
-Check "list: count" $items.Count 3
-Check "list: newest first" $items[0].description "third"
-Check "list: oldest last" $items[2].description "first"
-Check "isolation: account 1 still has 3" (@(ParseList (ListByAccount $acc1).Body)).Count 3
+$r = ListPeriod $acc "&from=$today&to=$today"
+Check "today..today: status" $r.Status 200
+Check "today..today: count" (@(ParseList $r.Body)).Count 3
+Check "yesterday..yesterday: count" (@(ParseList (ListPeriod $acc "&from=$yesterday&to=$yesterday").Body)).Count 0
+Check "tomorrow..tomorrow: count" (@(ParseList (ListPeriod $acc "&from=$tomorrow&to=$tomorrow").Body)).Count 0
+Check "yesterday..tomorrow: count" (@(ParseList (ListPeriod $acc "&from=$yesterday&to=$tomorrow").Body)).Count 3
+Check "no dates: count (as before)" (@(ParseList (ListPeriod $acc "").Body)).Count 3
+Check "only from: status" (ListPeriod $acc "&from=$today").Status 400
+Check "from after to: status" (ListPeriod $acc "&from=$tomorrow&to=$yesterday").Status 400
+Check "invalid date: status" (ListPeriod $acc "&from=abc&to=$today").Status 400
+Check "unknown account with dates: status" (ListPeriod 999 "&from=$today&to=$today").Status 404

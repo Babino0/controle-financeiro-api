@@ -11,6 +11,7 @@ import br.com.Babino0.controle_financeiro_api.repository.TransactionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -30,11 +31,25 @@ public class TransactionService {
     }
 
     @Transactional(readOnly = true)
-    public List<Transaction> listByAccount(Long accountId){
+    public List<Transaction> listByAccount(Long accountId, LocalDate from, LocalDate to){
         if (!accountRepository.existsById(accountId)) {
             throw new ResourceNotFoundException("Account not found");
         }
-        return transactionRepository.findByAccountIdOrderByDateTimeDesc(accountId);
+        if (from == null && to == null) {
+            return transactionRepository.findByAccountIdOrderByDateTimeDesc(accountId);
+        }
+        if (from == null || to == null) {
+            throw new IllegalArgumentException("Provide both from and to");
+        }
+        if (from.isAfter(to)) {
+            throw new IllegalArgumentException("from must not be after to");
+        }
+        LocalDateTime start = from.atStartOfDay();
+        LocalDateTime end = to.plusDays(1).atStartOfDay();
+        return transactionRepository
+                .findByAccountIdAndDateTimeGreaterThanEqualAndDateTimeLessThanOrderByDateTimeDesc(
+                        accountId, start, end);
+
     }
 
     @Transactional
