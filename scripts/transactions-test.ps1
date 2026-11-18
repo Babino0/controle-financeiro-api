@@ -19,47 +19,47 @@ function Check($name, $actual, $expected) {
     else { Write-Host "FAILED: $name (expected $expected, got $actual)" -ForegroundColor Red }
 }
 
+function Balance() {
+    $a = Call "GET" "/accounts/$accountId" $null
+    return [decimal]($a.Body | ConvertFrom-Json).balance
+}
+
 function Send($accId, $catId, $type, $amount) {
     $json = '{"accountId":' + $accId + ',"categoryId":' + $catId + ',"type":"' + $type + '","amount":' + $amount + ',"description":"test"}'
     return Call "POST" "/transactions" $json
 }
 
-function ParseList($body) {
-    if ([string]::IsNullOrWhiteSpace($body)) { return @() }
-    $parsed = $body | ConvertFrom-Json
-    return @($parsed | ForEach-Object { $_ })
-}
+$cat = Call "POST" "/categories" '{"name":"Food"}'
+$categoryId = ($cat.Body | ConvertFrom-Json).id
+$acc = Call "POST" "/accounts" '{"name":"Wallet","balance":100}'
+$accountId = ($acc.Body | ConvertFrom-Json).id
 
-function Report($accId) {
-    return Call "GET" "/reports/by-category?accountId=$accId" $null
-}
+$r = Send $accountId $categoryId "EXPENSE" 30
+Check "expense 30: status" $r.Status 201
+Check "expense 30: balance" (Balance) 70
 
-$food = ((Call "POST" "/categories" '{"name":"Food"}').Body | ConvertFrom-Json).id
-$transport = ((Call "POST" "/categories" '{"name":"Transport"}').Body | ConvertFrom-Json).id
-$acc1 = ((Call "POST" "/accounts" '{"name":"Wallet","balance":500}').Body | ConvertFrom-Json).id
-$acc2 = ((Call "POST" "/accounts" '{"name":"Savings","balance":100}').Body | ConvertFrom-Json).id
-$acc3 = ((Call "POST" "/accounts" '{"name":"Empty","balance":0}').Body | ConvertFrom-Json).id
+$r = Send $accountId $categoryId "INCOME" 50
+Check "income 50: status" $r.Status 201
+Check "income 50: balance" (Balance) 120
 
-Send $acc1 $food "EXPENSE" 10 | Out-Null
-Send $acc1 $food "EXPENSE" 5 | Out-Null
-Send $acc1 $transport "EXPENSE" 30 | Out-Null
-Send $acc1 $food "INCOME" 100 | Out-Null
-Send $acc2 $transport "EXPENSE" 7 | Out-Null
+$r = Send $accountId $categoryId "EXPENSE" 120
+Check "expense that zeroes the balance: status" $r.Status 201
+Check "expense that zeroes the balance: balance" (Balance) 0
 
-$r = Report $acc1
-$items = @(ParseList $r.Body)
-Check "report: status" $r.Status 200
-Check "report: 2 categories" $items.Count 2
-Check "report: biggest first" $items[0].categoryName "Transport"
-Check "report: transport total" ([decimal]$items[0].total) 30
-Check "report: food total ignores income" ([decimal]$items[1].total) 15
+$r = Send $accountId $categoryId "EXPENSE" 1
+Check "insufficient balance: status" $r.Status 422
+Check "insufficient balance: balance unchanged" (Balance) 0
 
-$r2 = @(ParseList (Report $acc2).Body)
-Check "isolation: account 2 has 1 category" $r2.Count 1
-Check "isolation: account 2 total" ([decimal]$r2[0].total) 7
+$r = Send $accountId $categoryId "INCOME" 0
+Check "zero amount: status" $r.Status 400
 
-$r3 = Report $acc3
-Check "no expenses: status" $r3.Status 200
-Check "no expenses: body is []" $r3.Body.Trim() "[]"
-Check "unknown account: status" (Report 999).Status 404
-Check "missing accountId: status" (Call "GET" "/reports/by-category" $null).Status 400
+$r = Send $accountId $categoryId "EXPENSE" -5
+Check "negative amount: status" $r.Status 400
+Check "invalid amount: balance unchanged" (Balance) 0
+
+$r = Send 999 $categoryId "INCOME" 10
+Check "unknown account: status" $r.Status 404
+
+$r = Send $accountId 999 "INCOME" 10
+Check "unknown category: status" $r.Status 404
+Check "unknown resource: balance unchanged" (Balance) 0
