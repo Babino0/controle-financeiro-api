@@ -2,6 +2,7 @@ package br.com.Babino0.controle_financeiro_api.controller;
 
 import br.com.Babino0.controle_financeiro_api.dto.TransferRequest;
 import br.com.Babino0.controle_financeiro_api.service.TransferService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -21,7 +22,7 @@ public class TransferController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void transfer(@RequestBody TransferRequest request) {
+    public void transfer(@RequestBody @Valid TransferRequest request) {
         transferService.transfer(request);
     }
 }
